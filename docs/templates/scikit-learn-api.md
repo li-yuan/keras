@@ -1,12 +1,12 @@
 # Wrappers for the Scikit-Learn API
 
-You can use `Sequential` Keras models (single-input only) as part of your Scikit-Learn workflow via the wrappers found at `keras.wrappers.sklearn.py`.
+You can use `Sequential` Keras models (single-input only) as part of your Scikit-Learn workflow via the wrappers found at `keras.wrappers.scikit_learn.py`.
 
 There are two wrappers available:
 
-`keras.wrappers.sklearn.KerasClassifier(build_fn=None, **sk_params)`, which implements the sklearn classifier interface,
+`keras.wrappers.scikit_learn.KerasClassifier(build_fn=None, **sk_params)`, which implements the Scikit-Learn classifier interface,
 
-`keras.wrappers.sklearn.KerasRegressor(build_fn=None, **sk_params)`, which implements the sklearn regressor interface.
+`keras.wrappers.scikit_learn.KerasRegressor(build_fn=None, **sk_params)`, which implements the Scikit-Learn regressor interface.
 
 ### Arguments
 
@@ -30,7 +30,7 @@ its arguments, so that you could create the estimator without passing any
 values to `sk_params`.
 
 `sk_params` could also accept parameters for calling `fit`, `predict`,
-`predict_proba`, and `score` methods (e.g., `nb_epoch`, `batch_size`).
+`predict_proba`, and `score` methods (e.g., `epochs`, `batch_size`).
 fitting (predicting) parameters are selected in the following order:
 
 1. Values passed to the dictionary arguments of
@@ -42,4 +42,4 @@ fitting (predicting) parameters are selected in the following order:
 When using scikit-learn's `grid_search` API, legal tunable parameters are
 those you could pass to `sk_params`, including fitting parameters.
 In other words, you could use `grid_search` to search for the best
-`batch_size` or `nb_epoch` as well as the model parameters.
+`batch_size` or `epochs` as well as the model parameters.

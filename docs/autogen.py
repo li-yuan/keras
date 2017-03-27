@@ -39,7 +39,8 @@ Index
     Text preprocessing
     Sequence preprocessing
 
-Objectives
+Losses
+Metrics
 Optimizers
 Activations
 Callbacks
@@ -64,7 +65,12 @@ if sys.version[0] == '2':
     reload(sys)
     sys.setdefaultencoding('utf8')
 
-from keras.layers import convolutional
+import keras
+from keras import utils
+from keras import layers
+from keras import initializers
+from keras.layers import pooling
+from keras.layers import local
 from keras.layers import recurrent
 from keras.layers import core
 from keras.layers import noise
@@ -76,11 +82,17 @@ from keras import optimizers
 from keras import callbacks
 from keras import models
 from keras.engine import topology
-from keras import objectives
+from keras import losses
+from keras import metrics
 from keras import backend
 from keras import constraints
 from keras import activations
 from keras import regularizers
+from keras.utils import data_utils
+from keras.utils import io_utils
+from keras.utils import layer_utils
+from keras.utils import np_utils
+from keras.utils import generic_utils
 
 
 EXCLUDE = {
@@ -88,6 +100,10 @@ EXCLUDE = {
     'Wrapper',
     'get_session',
     'set_session',
+    'CallbackList',
+    'serialize',
+    'deserialize',
+    'get',
 }
 
 PAGES = [
@@ -105,6 +121,7 @@ PAGES = [
             models.Sequential.predict_on_batch,
             models.Sequential.fit_generator,
             models.Sequential.evaluate_generator,
+            models.Sequential.predict_generator,
         ],
     },
     {
@@ -119,46 +136,64 @@ PAGES = [
             models.Model.predict_on_batch,
             models.Model.fit_generator,
             models.Model.evaluate_generator,
+            models.Model.predict_generator,
             models.Model.get_layer,
         ]
     },
     {
         'page': 'layers/core.md',
         'classes': [
-            core.Dense,
-            core.Activation,
-            core.Dropout,
-            core.Flatten,
-            core.Reshape,
-            core.Permute,
-            core.RepeatVector,
-            topology.Merge,
-            core.Lambda,
-            core.ActivityRegularization,
-            core.Masking,
-            core.Highway,
-            core.MaxoutDense,
-            core.TimeDistributedDense,
+            layers.Dense,
+            layers.Activation,
+            layers.Dropout,
+            layers.Flatten,
+            layers.Reshape,
+            layers.Permute,
+            layers.RepeatVector,
+            layers.Lambda,
+            layers.ActivityRegularization,
+            layers.Masking,
         ],
     },
     {
         'page': 'layers/convolutional.md',
         'classes': [
-            convolutional.Convolution1D,
-            convolutional.Convolution2D,
-            convolutional.Convolution3D,
-            convolutional.MaxPooling1D,
-            convolutional.MaxPooling2D,
-            convolutional.MaxPooling3D,
-            convolutional.AveragePooling1D,
-            convolutional.AveragePooling2D,
-            convolutional.AveragePooling3D,
-            convolutional.UpSampling1D,
-            convolutional.UpSampling2D,
-            convolutional.UpSampling3D,
-            convolutional.ZeroPadding1D,
-            convolutional.ZeroPadding2D,
-            convolutional.ZeroPadding3D,
+            layers.Conv1D,
+            layers.Conv2D,
+            layers.SeparableConv2D,
+            layers.Conv2DTranspose,
+            layers.Conv3D,
+            layers.Cropping1D,
+            layers.Cropping2D,
+            layers.Cropping3D,
+            layers.UpSampling1D,
+            layers.UpSampling2D,
+            layers.UpSampling3D,
+            layers.ZeroPadding1D,
+            layers.ZeroPadding2D,
+            layers.ZeroPadding3D,
+        ],
+    },
+    {
+        'page': 'layers/pooling.md',
+        'classes': [
+            pooling.MaxPooling1D,
+            pooling.MaxPooling2D,
+            pooling.MaxPooling3D,
+            pooling.AveragePooling1D,
+            pooling.AveragePooling2D,
+            pooling.AveragePooling3D,
+            pooling.GlobalMaxPooling1D,
+            pooling.GlobalAveragePooling1D,
+            pooling.GlobalMaxPooling2D,
+            pooling.GlobalAveragePooling2D,
+        ],
+    },
+    {
+        'page': 'layers/local.md',
+        'classes': [
+            local.LocallyConnected1D,
+            local.LocallyConnected2D,
         ],
     },
     {
@@ -191,11 +226,41 @@ PAGES = [
         'all_module_classes': [noise],
     },
     {
+        'page': 'layers/merge.md',
+        'classes': [
+            layers.Add,
+            layers.Multiply,
+            layers.Average,
+            layers.Maximum,
+            layers.Concatenate,
+            layers.Dot,
+        ],
+        'functions': [
+            layers.add,
+            layers.multiply,
+            layers.average,
+            layers.maximum,
+            layers.concatenate,
+            layers.dot,
+        ]
+    },
+    {
         'page': 'layers/wrappers.md',
         'all_module_classes': [wrappers],
     },
-
-
+    {
+        'page': 'metrics.md',
+        'all_module_functions': [metrics],
+    },
+    {
+        'page': 'losses.md',
+        'all_module_functions': [losses],
+    },
+    {
+        'page': 'initializers.md',
+        'all_module_functions': [initializers],
+        'all_module_classes': [initializers],
+    },
     {
         'page': 'optimizers.md',
         'all_module_classes': [optimizers],
@@ -205,8 +270,18 @@ PAGES = [
         'all_module_classes': [callbacks],
     },
     {
+        'page': 'activations.md',
+        'all_module_functions': [activations],
+    },
+    {
         'page': 'backend.md',
         'all_module_functions': [backend],
+    },
+    {
+        'page': 'utils.md',
+        'all_module_functions': [utils],
+        'classes': [utils.CustomObjectScope,
+                    utils.HDF5Matrix]
     },
 ]
 
@@ -240,7 +315,9 @@ def get_classes_ancestors(classes):
 
 
 def get_function_signature(function, method=True):
-    signature = inspect.getargspec(function)
+    signature = getattr(function, '_legacy_support_signature', None)
+    if signature is None:
+        signature = inspect.getargspec(function)
     defaults = signature.defaults
     if method:
         args = signature.args[1:]
@@ -255,7 +332,7 @@ def get_function_signature(function, method=True):
     for a in args:
         st += str(a) + ', '
     for a, v in kwargs:
-        if type(v) == str:
+        if isinstance(v, str):
             v = '\'' + v + '\''
         st += str(a) + '=' + str(v) + ', '
     if kwargs or args:
@@ -347,6 +424,14 @@ for subdir, dirs, fnames in os.walk('templates'):
             new_fpath = fpath.replace('templates', 'sources')
             shutil.copy(fpath, new_fpath)
 
+# Take care of index page.
+readme = open('../README.md').read()
+index = open('templates/index.md').read()
+index = index.replace('{{autogenerated}}', readme[readme.find('##'):])
+f = open('sources/index.md', 'w')
+f.write(index)
+f.close()
+
 print('Starting autogeneration.')
 for page_data in PAGES:
     blocks = []
@@ -400,7 +485,11 @@ for page_data in PAGES:
         docstring = function.__doc__
         if docstring:
             subblocks.append(process_function_docstring(docstring))
-            blocks.append('\n\n'.join(subblocks))
+        blocks.append('\n\n'.join(subblocks))
+
+    if not blocks:
+        raise RuntimeError('Found no content for page ' +
+                           page_data['page'])
 
     mkdown = '\n----\n\n'.join(blocks)
     # save module page.
